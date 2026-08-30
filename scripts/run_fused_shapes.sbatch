@@ -14,23 +14,39 @@
 
 set -euo pipefail
 
-source /home/w/weisong/venvs/torch-benchmark/bin/activate
+# Submit from the repository root:
+#
+#   sbatch scripts/run_fused_shapes.sbatch
+PROJECT_DIR="${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
+VENV_PATH="${VENV_PATH:-$HOME/venvs/torch-benchmark}"
 
-PROJECT_DIR=/home/w/weisong/transformer-kernel
+if [[ ! -f "$VENV_PATH/bin/activate" ]]; then
+    echo "Virtual environment not found: $VENV_PATH" >&2
+    echo "Set VENV_PATH to the desired virtual environment." >&2
+    exit 1
+fi
 
+source "$VENV_PATH/bin/activate"
 cd "$PROJECT_DIR"
 
-export CUDA_HOME=/usr/local/cuda-13.3
+export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"
 export PATH="$CUDA_HOME/bin:$PATH"
 export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
 
-export TORCH_CUDA_ARCH_LIST="7.5"
-export MAX_JOBS="$SLURM_CPUS_PER_TASK"
+export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-7.5}"
+export MAX_JOBS="${MAX_JOBS:-$SLURM_CPUS_PER_TASK}"
 export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 export PYTHONUNBUFFERED=1
 export OMP_NUM_THREADS="$SLURM_CPUS_PER_TASK"
 
-BATCH_SIZE=(64 1 4 16 128 10000 64 64   64 64 64 64 64)
+# Fail clearly if the extension has not been built.
+python -c '
+import torch
+import fused_residual_layernorm_cuda
+print("Custom CUDA extension: available")
+'
+
+BATCH_SIZE=(64 1 4 16 128 10000 64 64 64 64 64 64 64)
 D_MODEL=(128 128 128 128 128 128 32 1024 128 128 128 128 128)
 HEADS=(4 4 4 4 4 4 4 4 1 2 16 4 4)
 SEQ_LEN=(128 128 128 128 128 128 128 128 128 128 128 32 1024)
@@ -44,6 +60,8 @@ echo "Job ID: $SLURM_JOB_ID"
 echo "Array task: $I"
 echo "Published case: $CASE_NUMBER"
 echo "Node: $(hostname)"
+echo "Project: $PROJECT_DIR"
+echo "Python: $(which python)"
 echo "CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES:-unset}"
 
 echo "batch=${BATCH_SIZE[$I]}"
@@ -58,7 +76,7 @@ nvidia-smi \
     --format=csv
 
 srun --ntasks=1 --kill-on-bad-exit=1 \
-    python -u torch_transformer_benchmark.py \
+    python -u "$PROJECT_DIR/torch_transformer_benchmark.py" \
     --device cuda \
     --dtype float16 \
     --causal \

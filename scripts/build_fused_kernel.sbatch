@@ -13,19 +13,30 @@
 
 set -euo pipefail
 
-source /home/w/weisong/venvs/torch-benchmark/bin/activate
+# Submit from the repository root:
+#
+#   sbatch scripts/build_fused_kernel.sbatch
+PROJECT_DIR="${PROJECT_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
+VENV_PATH="${VENV_PATH:-$HOME/venvs/torch-benchmark}"
 
-PROJECT_DIR=/home/w/weisong/transformer-kernel
+if [[ ! -f "$VENV_PATH/bin/activate" ]]; then
+    echo "Virtual environment not found: $VENV_PATH" >&2
+    echo "Set VENV_PATH to the desired virtual environment." >&2
+    exit 1
+fi
 
+source "$VENV_PATH/bin/activate"
 cd "$PROJECT_DIR"
 
-export CUDA_HOME=/usr/local/cuda-13.3
+export CUDA_HOME="${CUDA_HOME:-/usr/local/cuda}"
 export PATH="$CUDA_HOME/bin:$PATH"
 export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
 
-export TORCH_CUDA_ARCH_LIST="7.5"
-export MAX_JOBS="$SLURM_CPUS_PER_TASK"
+export TORCH_CUDA_ARCH_LIST="${TORCH_CUDA_ARCH_LIST:-7.5}"
+export MAX_JOBS="${MAX_JOBS:-$SLURM_CPUS_PER_TASK}"
+export PYTHONPATH="$PROJECT_DIR:${PYTHONPATH:-}"
 export PYTHONUNBUFFERED=1
+export OMP_NUM_THREADS="$SLURM_CPUS_PER_TASK"
 
 echo "Job ID: $SLURM_JOB_ID"
 echo "Node: $(hostname)"
@@ -52,12 +63,14 @@ print("Extension CUDA_HOME:", CUDA_HOME)
 print("Ninja:", ninja.__version__)
 '
 
-python setup.py build_ext --inplace
+python "$PROJECT_DIR/setup.py" build_ext --inplace
 
 echo "Built extension:"
-ls -lh fused_residual_layernorm_cuda*.so
+ls -lh "$PROJECT_DIR"/fused_residual_layernorm_cuda*.so
 
+# Import torch first so libc10.so and other PyTorch libraries are loaded.
 python -c '
+import torch
 import fused_residual_layernorm_cuda
 print("Extension import: PASS")
 '
