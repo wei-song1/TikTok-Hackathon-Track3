@@ -1,0 +1,33 @@
+Job ID: 773850
+Array task: 2
+Published case: 3
+Node: xgpf1
+CUDA_VISIBLE_DEVICES: 0
+batch=4
+d_model=128
+heads=4
+seq_len=128
+layers=4
+ffn_dim=128
+name, uuid, driver_version, memory.total [MiB]
+Tesla T4, GPU-840b6d73-ee5d-e1c5-be65-397b3ced2e31, 580.173.02, 15360 MiB
+=== Configuration ===
+TransformerConfig(batch_size=4, seq_len=128, d_model=128, num_heads=4, ffn_dim=128, num_layers=4, causal=True)
+device=cuda, dtype=torch.float16, torch=2.13.0+cu130
+gpu=Tesla T4
+
+=== Accuracy check ===
+criterion: abs_error <= 0.002 OR relative_error <= 2.00%
+trial 01/5: PASS | max_abs=0.00390625 | max_rel=18.1324 | failed=0/65536
+trial 02/5: PASS | max_abs=0.00585938 | max_rel=5.08133 | failed=0/65536
+trial 03/5: PASS | max_abs=0.00390625 | max_rel=5.6875 | failed=0/65536
+trial 04/5: PASS | max_abs=0.00390625 | max_rel=66.5455 | failed=0/65536
+trial 05/5: PASS | max_abs=0.00390625 | max_rel=1.62907 | failed=0/65536
+summary: PASS | max_abs=0.00585938 | max_rel=66.5455 | failed=0/327680
+
+=== Performance benchmark ===
+timing excludes random-data generation and uses a fixed input
+CUDA latency is measured with torch.cuda.Event on the current stream
+baseline : median=3.9796 ms | mean=3.9835 ms | p90=3.9936 ms | min=3.8471 ms | throughput=128655.11 token/s
+optimized: median=2.5888 ms | mean=2.5775 ms | p90=2.6043 ms | min=2.5080 ms | throughput=197778.70 token/s
+speedup  : 1.537x based on median latency
